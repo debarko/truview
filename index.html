@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>HTML5 Media Device Access</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+    crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gasparesganga-jquery-loading-overlay@1.5.4/src/loadingoverlay.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gasparesganga-jquery-loading-overlay@1.5.4/extras/loadingoverlay_progress/loadingoverlay_progress.min.js"></script>
+  <script src="talkify.min.js"></script>
+  <style>
+    video,
+    img {
+      height: 100vh;
+    }
+
+    body {
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .wrapper {
+      /* for vizualization purposes */
+      text-align: center;
+    }
+
+    .content {
+      /* for vizualization purposes */
+      display: inline-block;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrapper">
+    <video class="content" autoplay></video>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      talkify.config = {
+        remoteService: {
+          host: 'https://talkify.net',
+          apiKey : 'your-api-key',
+          active: false //True to use Talkifys language engine and hosted voices. False only works for Html5Player.
+        },
+        ui:
+          {
+            audioControls: { //If enabled, replaces the built in audio controls. Especially good for the Web Speech API bits
+              enabled: false,
+              container: document.body
+            }
+          }
+      }
+      var player = new talkify.Html5Player();
+      function guid() {
+        function s4() {
+          return Math.floor((1 + Math.random()) * 0x10000)
+            .toString(16)
+            .substring(1);
+        }
+        return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
+          s4() + '-' + s4() + s4() + s4();
+      }
+      var __GUID__ = guid();
+      var video = document.querySelector('video')
+        , canvas;
+
+      /**
+       *  generates a still frame image from the stream in the <video>
+       *  appends the image to the <body>
+       */
+      function takeSnapshot() {
+        $.LoadingOverlay("show");
+        player.playText('We are uploading and processing the image. Please wait for a few seconds.');
+        var img = document.querySelector('img') || document.createElement('img');
+        var context;
+        var width = video.offsetWidth
+          , height = video.offsetHeight;
+
+        canvas = canvas || document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        context = canvas.getContext('2d');
+        context.drawImage(video, 0, 0, width, height);
+
+        img.src = canvas.toDataURL('image/jpeg');
+        $.ajax({
+          type: "POST",
+          url: "http://localhost:3000/getStuff/" + __GUID__,
+          data: img.src,
+          success: function (msg) {
+            $.LoadingOverlay("hide");
+            console.log(msg);
+            window.masterMSG = msg;
+            window.masterMSG = window.masterMSG.split('\n')[1].split('0)')[1].split('(p=')[0];
+            player.playText(window.masterMSG);
+          },
+          error: function (XMLHttpRequest, textStatus, errorThrown) {
+            $.LoadingOverlay("hide");
+            alert("some error");
+          }
+        });
+      }
+
+      // use MediaDevices API
+      // docs: https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia
+      if (navigator.mediaDevices) {
+        // access the web cam
+        navigator.mediaDevices.getUserMedia({ video: true })
+          // permission granted:
+          .then(function (stream) {
+            video.src = window.URL.createObjectURL(stream);
+            video.addEventListener('click', takeSnapshot);
+          })
+          // permission denied:
+          .catch(function (error) {
+            document.body.textContent = 'Could not access the camera. Error: ' + error.name;
+          });
+      }
+    })();
+
+  </script>
+</body>
+
+</html>
